@@ -2,31 +2,48 @@ package rabbitmq
 
 import (
 	"fmt"
+	"git.ramooz.org/ramooz/golang-components/logger"
 	"github.com/streadway/amqp"
+	"os"
 	"sync"
+	"time"
 )
+
+const delayReconnectTime = 5 * time.Second
 
 //Connection is the connection and channel of amqp
 type Connection struct {
-	ServiceCallerName string
 	conn              *amqp.Connection
 	channel           *amqp.Channel
-	ConnOpt           *Options
+	done              chan os.Signal
+	notifyClose       chan *amqp.Error
 	mu                sync.RWMutex
-	err               chan error
+	isConnected       bool
+	alive             bool
+	logger            *logger.LogService
+	ServiceCallerName string
+	ConnOpt           *Options
+	Exchange          []*string // Exchange name
+	RoutingKeys       []*string // RoutingKeys for messages
+	Queues            []*string // Queues name
+	Kind              *string
 }
 
 // NewConnection create a rabbitmq connection object
-func NewConnection(serviceName string, options *Options) (*Connection, error) {
+func NewConnection(serviceName string, options *Options, done chan os.Signal) (*Connection, error) {
 	opts, err := validateOptions(serviceName, options)
 	if err != nil {
 		return nil, err
 	}
-	return &Connection{
+	connObj := &Connection{
 		ServiceCallerName: serviceName,
 		ConnOpt:           opts,
-		err:               make(chan error),
-	}, nil
+		done:              done,
+		alive:             true,
+		logger:            newLogger(),
+	}
+	go connObj.handleReconnect(opts.UriAddress)
+	return connObj, nil
 }
 
 // NewEncodedConn will wrap an existing Connection and utilize the appropriate registered encoder
@@ -41,68 +58,56 @@ func NewEncodedConn(c *Connection, encType string) (*EncodedConn, error) {
 	return ec, nil
 }
 
-// Connect dial to rabbitMQ server and declare exchange
-func (c *Connection) Connect() error {
-	var err error
-	c.conn, err = amqp.Dial(c.ConnOpt.UriAddress)
+// connect dial to rabbitMQ server and declare exchange
+func (c *Connection) connect() bool {
+	conn, err := amqp.Dial(c.ConnOpt.UriAddress)
 	if err != nil {
-		return err
+		c.logger.Errorf("failed connect to rabbitMQ server %v, got error %v", c.ConnOpt.UriAddress, err)
+		return false
 	}
-	//Listen to NotifyClose from connection
-	go func() {
-		<-c.conn.NotifyClose(make(chan *amqp.Error))
-		c.err <- CONNECTION_CLOSED_ERROR
-	}()
-	c.channel, err = c.conn.Channel()
+	ch, err := c.conn.Channel()
 	if err != nil {
-		return err
+		c.logger.Errorf("failed connect to rabbitMQ channel, got error %v", err)
+		return false
 	}
-	if err := c.channel.ExchangeDeclare(
-		c.ConnOpt.Exchange,
-		c.ConnOpt.Kind,
-		c.ConnOpt.DurableExchange,
-		c.ConnOpt.AutoDelete,
-		false,
-		c.ConnOpt.NoWait,
-		nil,
-	); err != nil {
-		return fmt.Errorf("error in exchange declare %v", err)
-	}
-	return nil
+	c.updateConnection(conn, ch)
+	c.isConnected = true
+	return true
 }
 
-// BindQueue declare and bind new queues
-func (c *Connection) BindQueue() error {
-	for _, queue := range c.ConnOpt.Queues {
-		if _, err := c.channel.QueueDeclare(queue,
-			c.ConnOpt.DurableExchange,
-			c.ConnOpt.AutoDelete,
-			c.ConnOpt.ExclusiveQueue,
-			c.ConnOpt.NoWait, nil); err != nil {
-			return fmt.Errorf("queue declare error %v", err)
-		}
-		for _, key := range c.ConnOpt.RoutingKeys {
-			if err := c.channel.QueueBind(queue,
-				key,
-				c.ConnOpt.Exchange,
-				c.ConnOpt.NoWait,
-				nil); err != nil {
-				return fmt.Errorf("queue bind error %v", err)
+// handleReconnect if closing rabbitMQ try to connect rabbitMQ continuously
+func (c *Connection) handleReconnect(addr string) {
+	for c.alive {
+		c.isConnected = false
+		now := time.Now()
+		c.logger.Infof("attempting to connect to rabbitMQ %v", addr)
+		retryCount := 0
+		for !c.connect() {
+			if !c.alive {
+				return
+			}
+			select {
+			case <-c.done:
+				return
+			case <-time.After(delayReconnectTime + time.Duration(retryCount)*time.Second):
+				c.logger.Warn("cannot connect to rabbitMQ try connecting to rabbitMQ...")
 			}
 		}
+		c.logger.Infof("connected to rabbitMQ after %v second", time.Since(now).Seconds())
+		select {
+		case <-c.done:
+			return
+		case <-c.notifyClose:
+		}
 	}
-	return nil
 }
 
-// Reconnect automatic reconnect publisher and consumer if connection dropped
-func (c *Connection) Reconnect() error {
-	if err := c.Connect(); err != nil {
-		return err
-	}
-	if err := c.BindQueue(); err != nil {
-		return err
-	}
-	return nil
+// updateConnection update connection and channel in memory
+func (c *Connection) updateConnection(connection *amqp.Connection, channel *amqp.Channel) {
+	c.conn = connection
+	c.channel = channel
+	c.notifyClose = make(chan *amqp.Error)
+	c.channel.NotifyClose(c.notifyClose)
 }
 
 func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
@@ -114,20 +119,6 @@ func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
 		return nil, URI_ADDRESS_ERROR
 	} else {
 		opt.UriAddress = newOpt.UriAddress
-	}
-	if len(newOpt.Exchange) != 0 {
-		opt.Exchange = newOpt.Exchange
-	}
-	if len(newOpt.RoutingKeys) == 0 {
-		return nil, ROUTING_KEYS_EMPTY_ERROR
-	} else {
-		opt.RoutingKeys = newOpt.RoutingKeys
-	}
-	if len(newOpt.Queues) != 0 {
-		opt.Queues = newOpt.Queues
-	}
-	if len(newOpt.Kind) != 0 {
-		opt.Kind = newOpt.Kind
 	}
 	if newOpt.DurableExchange != opt.DurableExchange {
 		opt.DurableExchange = newOpt.DurableExchange
@@ -145,4 +136,8 @@ func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
 		opt.ExclusiveQueue = newOpt.ExclusiveQueue
 	}
 	return opt, nil
+}
+
+func newLogger() *logger.LogService {
+	return logger.NewLogger(10001, "event-component", &logger.Options{Colorable: true, Development: true})
 }
