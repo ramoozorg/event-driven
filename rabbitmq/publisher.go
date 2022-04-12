@@ -1,15 +1,15 @@
 package rabbitmq
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/streadway/amqp"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 //Publish publishes a request to the amqp queue
 func (c *Connection) Publish(key, replayTo, correlationID string, priority uint8, body interface{}) error {
 	msg := message{RoutingKey: key, ReplyTo: replayTo, ContentType: "text/plain", CorrelationID: correlationID, Priority: priority}
-	b, err := json.Marshal(body)
+	b, err := bson.Marshal(body)
 	if err != nil {
 		return err
 	}
