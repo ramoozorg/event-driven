@@ -14,7 +14,7 @@ func (c *Connection) Publish(key, replayTo, correlationID string, priority uint8
 		return err
 	}
 	msg.Body = b
-	return c.publish(msg)
+	return publish(msg, c)
 }
 
 // Publish publishes the data argument to the push amqp message. The data argument
@@ -26,24 +26,24 @@ func (c *EncodedConn) Publish(key, replayTo, correlationID string, priority uint
 		return err
 	}
 	msg.Body = encBody
-	return c.Conn.publish(msg)
+	return publish(msg, c.Conn)
 }
 
-func (c *Connection) publish(m message) error {
+func publish(msg message, conn *Connection) error {
 	select {
-	case err := <-c.err:
+	case err := <-conn.err:
 		if err != nil {
-			c.Reconnect()
+			conn.Reconnect()
 		}
 	default:
 	}
 	p := amqp.Publishing{
-		ContentType:   m.ContentType,
-		CorrelationId: m.CorrelationID,
-		Body:          m.Body,
-		ReplyTo:       m.ReplyTo,
+		ContentType:   msg.ContentType,
+		CorrelationId: msg.CorrelationID,
+		Body:          msg.Body,
+		ReplyTo:       msg.ReplyTo,
 	}
-	if err := c.channel.Publish(c.ConnOpt.Exchange, m.RoutingKey, false, false, p); err != nil {
+	if err := conn.channel.Publish(conn.ConnOpt.Exchange, msg.RoutingKey, false, false, p); err != nil {
 		return fmt.Errorf("Error in Publishing: %s", err)
 	}
 	return nil
