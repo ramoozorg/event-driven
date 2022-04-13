@@ -1,15 +1,19 @@
 package rabbitmq
 
-import "github.com/streadway/amqp"
-
-//message is the amqp request to publish
+// message is the amqp request to publish
 type message struct {
 	RoutingKey    string
 	ReplyTo       string
 	ContentType   string
 	CorrelationID string
 	Priority      uint8
-	Body          []byte
+	Body          []byte `bson:"body" json:"body"`
 }
 
-type delivery amqp.Delivery
+// Message is consumed message structure
+type Message struct {
+	Exchange   string
+	Queue      string
+	RoutingKey string
+	Body       []byte `bson:"body" json:"body"`
+}

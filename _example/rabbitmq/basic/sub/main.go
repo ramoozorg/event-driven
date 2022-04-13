@@ -1,56 +1,78 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
-	"github.com/streadway/amqp"
-	"log"
+	"go.mongodb.org/mongo-driver/bson"
+	"os"
 	"time"
 )
 
-type Person struct {
-	Name string `json:"name"`
-	Age  int    `json:"age"`
+var (
+	routingKeys = []string{"rk1", "rk2"}
+	queues      = []string{"queue1", "queue2"}
+)
+
+type person struct {
+	Name string `bson:"name" json:"name"`
+	Age  int    `bson:"age" json:"age"`
 }
 
 func main() {
+	chSignal := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
 	conn, err := rabbitmq.NewConnection("test", &rabbitmq.Options{
 		UriAddress:      "amqp://guest:guest@localhost:5672",
-		Exchange:        "test",
-		RoutingKeys:     []string{"RoutingA", "RoutingB"},
-		Queues:          []string{"QueueA"},
 		DurableExchange: true,
 		AutoAck:         true,
 		ExclusiveQueue:  false,
-	})
+	}, chSignal)
 	if err != nil {
 		panic(err)
 	}
-	if err := conn.Connect(); err != nil {
-		panic(err)
-	}
-	if err := conn.BindQueue(); err != nil {
-		panic(err)
-	}
-	delivries, err := conn.Consume()
-	if err != nil {
-		panic(err)
-	}
-	for {
-		for k, d := range delivries {
-			conn.HandleConsumedDeliveries(k, d, messageHandler)
-		}
-		time.Sleep(10 * time.Second)
-	}
-}
 
-func messageHandler(c *rabbitmq.Connection, deliveries <-chan amqp.Delivery) {
-	for d := range deliveries {
-		//handle the custom message
-		log.Printf("Got message from queue %v and routing key %v\n", c.ConnOpt.Queues, d.RoutingKey)
-		var v interface{}
-		_ = json.Unmarshal(d.Body, &v)
-		fmt.Printf("%v\n", v)
+	for {
+		if conn.IsConnected() {
+			break
+		}
+		time.Sleep(1 * time.Second)
 	}
+
+	if err := conn.ExchangeDeclare(map[string]string{"exch1": "topic", "exch2": "topic"}); err != nil {
+		panic(err)
+	}
+	if err := conn.QueueDeclare(queues); err != nil {
+		panic(err)
+	}
+	if err := conn.RoutingKeyDeclare(routingKeys); err != nil {
+		panic(err)
+	}
+	if err := conn.QueueBind(); err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			delivries, err := conn.Consume()
+			if err != nil {
+				panic(err)
+			}
+			for queue, msg := range delivries {
+				msg := conn.MessageHandler(queue, msg)
+				if !msg.IsEmpty() {
+					p := person{}
+					_ = bson.Unmarshal(msg.Body, &p)
+					fmt.Printf("New Message from exchange %v queue %v routingKey %v with body %v received\n", msg.Exchange, msg.Queue, msg.RoutingKey, p)
+				}
+			}
+		}
+	}()
+
+	go func() {
+		sig := <-chSignal
+		fmt.Println()
+		fmt.Println(sig)
+		done <- true
+	}()
+	<-done
 }

@@ -4,11 +4,7 @@ import "fmt"
 
 // Options for new connection of rabbitmq
 type Options struct {
-	UriAddress      string   // UriAddress of rabbitmq, amqp://user:password@x.x.x.x:port
-	Exchange        string   // Exchange name
-	RoutingKeys     []string // RoutingKeys for messages
-	Queues          []string // Queues name
-	Kind            string
+	UriAddress      string // UriAddress of rabbitmq, amqp://user:password@x.x.x.x:port
 	DurableExchange bool
 	AutoAck         bool
 	AutoDelete      bool
@@ -19,9 +15,6 @@ type Options struct {
 // getDefaultOptions create default options
 func getDefaultOptions() *Options {
 	return &Options{
-		Exchange:        "NewData",
-		Queues:          []string{"defaultQueue"},
-		Kind:            "topic",
 		DurableExchange: true,
 		AutoAck:         true,
 		AutoDelete:      false,

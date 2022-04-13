@@ -21,7 +21,7 @@ const (
 
 func init() {
 	encMap = make(map[string]Encoder)
-	// Register json, gob and default encoder
+	// Register json, bson encoder
 	RegisterEncoder(JSON_ENCODER, &enc.JsonEncoder{})
 	RegisterEncoder(BSON_ENCODER, &enc.BsonEncoder{})
 }
