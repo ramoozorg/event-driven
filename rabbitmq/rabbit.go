@@ -17,7 +17,6 @@ const (
 
 const (
 	delayReconnectTime = 5 * time.Second
-	resendDelay
 )
 
 // NewConnection create a rabbitmq connection object
@@ -98,7 +97,6 @@ func (c *Connection) updateConnection(connection *amqp.Connection, channel *amqp
 	c.conn = connection
 	c.channel = channel
 	c.notifyClose = make(chan *amqp.Error)
-	c.notifyConfirmation = make(chan *amqp.Confirmation)
 	c.channel.NotifyClose(c.notifyClose)
 }
 

@@ -14,15 +14,14 @@ type (
 
 //Connection is the connection and channel of amqp
 type Connection struct {
-	conn               *amqp.Connection // conn rabbitMQ connection Object
-	channel            *amqp.Channel    // channel amqp channel Object
-	done               chan os.Signal
-	notifyClose        chan *amqp.Error
-	notifyConfirmation chan *amqp.Confirmation
-	isConnected        bool
-	alive              bool
-	exchanges          []string                  // exchanges list
-	queues             map[string]MessageHandler // queue and message handler
-	ServiceCallerName  string
-	ConnOpt            *Options
+	conn              *amqp.Connection // conn rabbitMQ connection Object
+	channel           *amqp.Channel    // channel amqp channel Object
+	done              chan os.Signal
+	notifyClose       chan *amqp.Error
+	isConnected       bool
+	alive             bool
+	exchanges         []string                  // exchanges list
+	queues            map[string]MessageHandler // queue and message handler
+	ServiceCallerName string
+	ConnOpt           *Options
 }
