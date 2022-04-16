@@ -1,20 +1,18 @@
 package rabbitmq
 
 import (
-	"github.com/streadway/amqp"
 	"time"
 )
 
 //Consume consumes the messages from the queues and passes it as map of chan amqp.Delivery
-func (c *Connection) Consume() (map[string]<-chan amqp.Delivery, error) {
+func (c *Connection) Consume() error {
 	for {
 		if c.isConnected {
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
-	msg := make(map[string]<-chan amqp.Delivery)
-	for _, queue := range c.queues {
+	for queue, handler := range c.queues {
 		deliveries, err := c.channel.Consume(queue,
 			"",
 			c.ConnOpt.AutoAck,
@@ -23,22 +21,12 @@ func (c *Connection) Consume() (map[string]<-chan amqp.Delivery, error) {
 			c.ConnOpt.NoWait,
 			nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		msg[queue] = deliveries
+		if err := handler(deliveries); err != nil {
+			return err
+		}
 	}
-	return msg, nil
-}
 
-// MessageHandler create new Message structure for received new message
-func (c *Connection) MessageHandler(queue string, delivery <-chan amqp.Delivery) Message {
-	select {
-	case msg, _ := <-delivery:
-		return Message{
-			Exchange:   msg.Exchange,
-			Queue:      queue,
-			RoutingKey: msg.RoutingKey,
-			Body:       msg.Body,
-		}
-	}
+	return nil
 }
