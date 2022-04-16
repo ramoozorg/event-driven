@@ -8,22 +8,17 @@ import (
 	"time"
 )
 
-const delayReconnectTime = 5 * time.Second
+const (
+	DIRECT  Kind = iota // DIRECT a message goes to the queues whose binding key exactly matches the routing key of the message.
+	FANOUT              // FANOUT exchanges can be useful when the same message needs to be sent to one or more queues with consumers who may process the same message in different ways.
+	TOPIC               // TOPIC exchange is similar to direct exchange, but the routing is done according to the routing pattern. Instead of using fixed routing key, it uses wildcards.
+	HEADERS             // HEADERS exchange routes messages based on arguments containing headers and optional values. It uses the message header attributes for routing.
+)
 
-//Connection is the connection and channel of amqp
-type Connection struct {
-	conn              *amqp.Connection
-	channel           *amqp.Channel
-	done              chan os.Signal
-	notifyClose       chan *amqp.Error
-	isConnected       bool
-	alive             bool
-	exchanges         map[string]string // exchanges list
-	routingKeys       []string          // routingKeys for messages
-	queues            []string          // queues name
-	ServiceCallerName string
-	ConnOpt           *Options
-}
+const (
+	delayReconnectTime = 5 * time.Second
+	resendDelay
+)
 
 // NewConnection create a rabbitmq connection object
 func NewConnection(serviceName string, options *Options, done chan os.Signal) (*Connection, error) {
@@ -102,113 +97,76 @@ func (c *Connection) handleReconnect(addr string) {
 func (c *Connection) updateConnection(connection *amqp.Connection, channel *amqp.Channel) {
 	c.conn = connection
 	c.channel = channel
-	c.exchanges = make(map[string]string)
 	c.notifyClose = make(chan *amqp.Error)
+	c.notifyConfirmation = make(chan *amqp.Confirmation)
 	c.channel.NotifyClose(c.notifyClose)
 }
 
-// ExchangeDeclare declare new exchange with specific kind (direct, topic and ...),
-// exchanges map[exchangeName]kind
-func (c *Connection) ExchangeDeclare(exchanges map[string]string) error {
-	for exchange, kind := range exchanges {
-		if c.exchanges == nil {
-			c.exchanges = make(map[string]string)
-		}
-		c.exchanges[exchange] = kind
-		if err := c.channel.ExchangeDeclarePassive(
-			exchange,
-			kind,
-			c.ConnOpt.DurableExchange,
-			c.ConnOpt.AutoDelete,
-			false,
-			c.ConnOpt.NoWait,
-			nil); err != nil {
-			return err
-		}
+// ExchangeDeclare declare new exchange with specific kind (direct, topic, fanout, headers)
+func (c *Connection) ExchangeDeclare(exchange string, kind Kind) error {
+	if checkElementInSlice(c.exchanges, exchange) {
+		return EXCHANGE_ALREADY_EXISTS_ERROR
+	}
+	c.exchanges = append(c.exchanges, exchange)
+	if err := c.channel.ExchangeDeclare(
+		exchange,
+		kind.String(),
+		c.ConnOpt.DurableExchange,
+		c.ConnOpt.AutoDelete,
+		false,
+		c.ConnOpt.NoWait,
+		nil); err != nil {
+		return err
 	}
 	return nil
 }
 
-// QueueDeclare declare new queue for rabbitMQ
-func (c *Connection) QueueDeclare(queues []string) error {
-	for _, queue := range queues {
-		if !checkExistsInSlice(c.queues, queue) {
-			c.queues = append(c.queues, queue)
-		} else {
-			return fmt.Errorf("queue %v already exists", queue)
-		}
-		if _, err := c.channel.QueueDeclarePassive(
-			queue,
-			c.ConnOpt.DurableExchange,
-			c.ConnOpt.AutoDelete,
-			c.ConnOpt.ExclusiveQueue,
-			c.ConnOpt.NoWait,
-			nil,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// RoutingKeyDeclare declare routing keys
-func (c *Connection) RoutingKeyDeclare(routingKeys []string) error {
-	for _, key := range routingKeys {
-		if !checkExistsInSlice(c.routingKeys, key) {
-			c.routingKeys = append(c.routingKeys, key)
-		} else {
-			return fmt.Errorf("routing key %v already exists", key)
-		}
-	}
-	return nil
-}
-
-func (c *Connection) QueueBind() error {
+// QueueDeclare declare new queue and bind queue and bind exchange with routing key
+func (c *Connection) QueueDeclare(queue, exchange, routingKey string, messageHandler MessageHandler) error {
 	if c.queues == nil {
-		return fmt.Errorf("queues is empty, please first declare queues")
+		c.queues = make(map[string]MessageHandler)
 	}
-	if c.exchanges == nil {
-		return fmt.Errorf("exchanges is empty, please first declare exchanges")
+	if _, ok := c.queues[queue]; ok {
+		return QUEUE_ALREADY_EXISTS_ERROR
+	} else {
+		c.queues[queue] = messageHandler
 	}
-	if c.routingKeys == nil {
-		return fmt.Errorf("routingKeys is empty, please first declare routingKeys")
+	if _, err := c.channel.QueueDeclare(
+		queue,
+		c.ConnOpt.DurableExchange,
+		c.ConnOpt.AutoDelete,
+		c.ConnOpt.ExclusiveQueue,
+		c.ConnOpt.NoWait,
+		nil,
+	); err != nil {
+		return err
 	}
-	for exchange := range c.exchanges {
-		for _, queue := range c.queues {
-			for _, key := range c.routingKeys {
-				if err := c.channel.QueueBind(
-					queue,
-					key,
-					exchange,
-					c.ConnOpt.NoWait,
-					nil,
-				); err != nil {
-					return err
-				}
-			}
-		}
+
+	if err := c.channel.QueueBind(
+		queue,
+		routingKey,
+		exchange,
+		c.ConnOpt.NoWait,
+		nil,
+	); err != nil {
+		return err
 	}
 	return nil
 }
 
-// IsConnected check rabbitMQ client is connect
+// IsConnected check rabbitMQ client is connected
 func (c *Connection) IsConnected() bool {
 	return c.isConnected
 }
 
 // GetExchangeList return list of exchanges
-func (c *Connection) GetExchangeList() map[string]string {
+func (c *Connection) GetExchangeList() []string {
 	return c.exchanges
 }
 
-// GetQueueList return list of queues
-func (c *Connection) GetQueueList() []string {
+// GetQueueList return list of queues with handlers
+func (c *Connection) GetQueueList() map[string]MessageHandler {
 	return c.queues
-}
-
-// GetRoutingKeys return list of RoutingKeys
-func (c *Connection) GetRoutingKeys() []string {
-	return c.routingKeys
 }
 
 //Close stop rabbitMQ client
@@ -226,14 +184,6 @@ func (c *Connection) Close() error {
 	c.isConnected = false
 	log.Printf("gracefully stopped rabbitMQ connection")
 	return nil
-}
-
-// IsEmpty check message is empty
-func (m Message) IsEmpty() bool {
-	if len(m.Body) == 0 {
-		return true
-	}
-	return false
 }
 
 func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
@@ -264,7 +214,7 @@ func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
 	return opt, nil
 }
 
-func checkExistsInSlice(slice []string, newElement string) bool {
+func checkElementInSlice(slice []string, newElement string) bool {
 	if slice != nil {
 		for _, s := range slice {
 			if s == newElement {
@@ -273,4 +223,20 @@ func checkExistsInSlice(slice []string, newElement string) bool {
 		}
 	}
 	return false
+}
+
+// String exchange type as string
+func (k Kind) String() string {
+	switch k {
+	case DIRECT:
+		return "direct"
+	case FANOUT:
+		return "fanout"
+	case TOPIC:
+		return "topic"
+	case HEADERS:
+		return "headers"
+	default:
+		return "topic"
+	}
 }
