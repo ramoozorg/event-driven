@@ -1,19 +1,28 @@
 package rabbitmq
 
-// message is the amqp request to publish
-type message struct {
-	RoutingKey    string
-	ReplyTo       string
-	ContentType   string
-	CorrelationID string
-	Priority      uint8
-	Body          []byte `bson:"body" json:"body"`
-}
+import (
+	"github.com/streadway/amqp"
+	"os"
+)
 
-// Message is consumed message structure
-type Message struct {
-	Exchange   string
-	Queue      string
-	RoutingKey string
-	Body       []byte `bson:"body" json:"body"`
+type (
+	Kind           int                  // Kind is exchange type
+	MessageHandler func(Delivery) error // MessageHandler handle message from specific queue and routingKey
+	Delivery       <-chan amqp.Delivery // Delivery is a channel for deliver published message
+	Headers        amqp.Table           // Headers table for set message header when publishing
+)
+
+//Connection is the connection and channel of amqp
+type Connection struct {
+	conn               *amqp.Connection // conn rabbitMQ connection Object
+	channel            *amqp.Channel    // channel amqp channel Object
+	done               chan os.Signal
+	notifyClose        chan *amqp.Error
+	notifyConfirmation chan *amqp.Confirmation
+	isConnected        bool
+	alive              bool
+	exchanges          []string                  // exchanges list
+	queues             map[string]MessageHandler // queue and message handler
+	ServiceCallerName  string
+	ConnOpt            *Options
 }
