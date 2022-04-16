@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-var (
-	routingKeys = []string{"rk1", "rk2"}
-	queues      = []string{"queue1", "queue2"}
-)
-
 type person struct {
 	Name string `bson:"name" json:"name"`
 	Age  int    `bson:"age" json:"age"`
@@ -36,19 +31,12 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 
-	if err := conn.ExchangeDeclare(map[string]string{"exch1": "topic", "exch2": "topic"}); err != nil {
+	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.QueueDeclare(queues); err != nil {
+	if err := conn.QueueDeclare("queue1", "exchange1", "rk", nil); err != nil {
 		panic(err)
 	}
-	if err := conn.RoutingKeyDeclare(routingKeys); err != nil {
-		panic(err)
-	}
-	if err := conn.QueueBind(); err != nil {
-		panic(err)
-	}
-
 	if err := NewMessagePublish(conn); err != nil {
 		panic(err)
 	}
@@ -56,7 +44,7 @@ func main() {
 
 func NewMessagePublish(conn *rabbitmq.Connection) error {
 	p := person{Name: "javad", Age: 28}
-	if err := conn.Publish("rk1", "", "text/plain", "", 0, p); err != nil {
+	if err := conn.Publish("exchange1", "rk", "", "text/plain", "", nil, p); err != nil {
 		return err
 	}
 	log.Println("message published ", p)
