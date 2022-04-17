@@ -1,6 +1,6 @@
 module github.com/ramoozorg/event-driven
 
-go 1.18
+go 1.17
 
 require (
 	github.com/pkg/errors v0.9.1
