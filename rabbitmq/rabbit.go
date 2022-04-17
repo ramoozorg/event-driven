@@ -177,6 +177,22 @@ func (c *Connection) Close() error {
 	return nil
 }
 
+// String exchange type as string
+func (k Kind) String() string {
+	switch k {
+	case DIRECT:
+		return "direct"
+	case FANOUT:
+		return "fanout"
+	case TOPIC:
+		return "topic"
+	case HEADERS:
+		return "headers"
+	default:
+		return "topic"
+	}
+}
+
 func validateOptions(serviceName string, newOpt *Options) (*Options, error) {
 	opt := getDefaultOptions()
 	if len(serviceName) == 0 {
@@ -214,22 +230,6 @@ func checkElementInSlice(slice []string, newElement string) bool {
 		}
 	}
 	return false
-}
-
-// String exchange type as string
-func (k Kind) String() string {
-	switch k {
-	case DIRECT:
-		return "direct"
-	case FANOUT:
-		return "fanout"
-	case TOPIC:
-		return "topic"
-	case HEADERS:
-		return "headers"
-	default:
-		return "topic"
-	}
 }
 
 func initNewLogger() *logger.LogService {
