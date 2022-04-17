@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	DIRECT  Kind = iota // DIRECT a message goes to the queues whose binding key exactly matches the routing key of the message.
-	FANOUT              // FANOUT exchanges can be useful when the same message needs to be sent to one or more queues with consumers who may process the same message in different ways.
+	DIRECT  Kind = iota // DIRECT a event goes to the queues whose binding key exactly matches the routing key of the event.
+	FANOUT              // FANOUT exchanges can be useful when the same event needs to be sent to one or more queues with consumers who may process the same event in different ways.
 	TOPIC               // TOPIC exchange is similar to direct exchange, but the routing is done according to the routing pattern. Instead of using fixed routing key, it uses wildcards.
-	HEADERS             // HEADERS exchange routes messages based on arguments containing headers and optional values. It uses the message header attributes for routing.
+	HEADERS             // HEADERS exchange routes events based on arguments containing headers and optional values. It uses the event header attributes for routing.
 )
 
 const (
@@ -31,7 +31,7 @@ func NewConnection(serviceName string, options *Options, done chan os.Signal) (*
 		done:              done,
 		alive:             true,
 		logger:            initNewLogger(),
-		queues:            make(map[string]MessageHandler),
+		queues:            make(map[string]EventHandler),
 	}
 	go connObj.handleReconnect(opts.UriAddress)
 	for {
@@ -133,15 +133,15 @@ func (c *Connection) DeclarePublisherQueue(queue, exchange, routingKey string) e
 }
 
 // DeclareConsumerQueue declare new queue and bind queue and bind exchange with routing key
-func (c *Connection) DeclareConsumerQueue(queue, exchange, routingKey string, messageHandler MessageHandler) error {
-	return c.queueDeclare(queue, exchange, routingKey, messageHandler)
+func (c *Connection) DeclareConsumerQueue(queue, exchange, routingKey string, eventHandler EventHandler) error {
+	return c.queueDeclare(queue, exchange, routingKey, eventHandler)
 }
 
-func (c *Connection) queueDeclare(queue, exchange, routingKey string, consumeMessageHandler MessageHandler) error {
+func (c *Connection) queueDeclare(queue, exchange, routingKey string, consumerEventHandler EventHandler) error {
 	if _, ok := c.queues[queue]; ok {
 		return QUEUE_ALREADY_EXISTS_ERROR
 	} else {
-		c.queues[queue] = consumeMessageHandler
+		c.queues[queue] = consumerEventHandler
 	}
 	if _, err := c.channel.QueueDeclare(
 		queue,
@@ -177,7 +177,7 @@ func (c *Connection) GetExchangeList() []string {
 }
 
 // GetQueueList return list of queues with handlers
-func (c *Connection) GetQueueList() map[string]MessageHandler {
+func (c *Connection) GetQueueList() map[string]EventHandler {
 	return c.queues
 }
 

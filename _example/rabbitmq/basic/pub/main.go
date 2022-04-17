@@ -31,12 +31,12 @@ func main() {
 	if err := conn.DeclarePublisherQueue("queue2", "exchange1", "rk2"); err != nil {
 		panic(err)
 	}
-	if err := NewMessagePublish(conn); err != nil {
+	if err := NewEventPublish(conn); err != nil {
 		panic(err)
 	}
 }
 
-func NewMessagePublish(conn *rabbitmq.Connection) error {
+func NewEventPublish(conn *rabbitmq.Connection) error {
 	p := person{Name: "rs", Age: 22}
 	q := person{Name: "reza", Age: 23}
 	if err := conn.Publish("exchange1", "rk", rabbitmq.PublishingOptions{}, p); err != nil {

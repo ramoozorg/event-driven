@@ -26,10 +26,10 @@ func main() {
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclareConsumerQueue("queue1", "exchange1", "rk", messageHandler); err != nil {
+	if err := conn.DeclareConsumerQueue("queue1", "exchange1", "rk", eventHandler); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclareConsumerQueue("queue2", "exchange1", "rk2", messageHandler); err != nil {
+	if err := conn.DeclareConsumerQueue("queue2", "exchange1", "rk2", eventHandler); err != nil {
 		panic(err)
 	}
 
@@ -39,8 +39,8 @@ func main() {
 	<-done
 }
 
-func messageHandler(queue string, delivery rabbitmq.Delivery) {
+func eventHandler(queue string, delivery rabbitmq.Delivery) {
 	p := person{}
 	_ = bson.Unmarshal(delivery.Body, &p)
-	fmt.Printf("New Message from exchange %v queue %v routingKey %v with body %v received\n", delivery.Exchange, queue, delivery.RoutingKey, p)
+	fmt.Printf("New Event from exchange %v queue %v routingKey %v with body %v received\n", delivery.Exchange, queue, delivery.RoutingKey, p)
 }

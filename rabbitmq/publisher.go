@@ -13,7 +13,7 @@ func (c *Connection) Publish(exchange, routingKey string, publishOptions Publish
 	if !checkElementInSlice(c.exchanges, exchange) {
 		return EXHCNAGE_NOT_FOUND_ERROR
 	}
-	// serialized message to bson
+	// serialized event to bson
 	b, err := bson.Marshal(body)
 	if err != nil {
 		return err

@@ -8,10 +8,10 @@ import (
 )
 
 type (
-	Kind           int                                   // Kind is exchange type
-	MessageHandler func(queue string, delivery Delivery) // MessageHandler handle message from specific queue and routingKey
-	Delivery       amqp.Delivery                         // Delivery is a channel for deliver published message
-	Headers        amqp.Table                            // Headers table for set message header when publishing
+	Kind         int                                   // Kind is exchange type
+	EventHandler func(queue string, delivery Delivery) // EventHandler handle event from specific queue and routingKey
+	Delivery     amqp.Delivery                         // Delivery is a channel for deliver published event
+	Headers      amqp.Table                            // Headers table for set event header when publishing
 )
 
 // Connection is the structure of amqp event connection
@@ -22,16 +22,16 @@ type Connection struct {
 	notifyClose       chan *amqp.Error
 	isConnected       bool
 	alive             bool
-	exchanges         []string                  // exchanges list
-	queues            map[string]MessageHandler // queue and message handler
+	exchanges         []string                // exchanges list
+	queues            map[string]EventHandler // queue and event handler
 	logger            *logger.LogService
 	ServiceCallerName string
 	ConnOpt           *Options
 }
 
-// PublishingOptions options for message
+// PublishingOptions options for event
 type PublishingOptions struct {
-	Headers Headers // rabbitMQ message headers
+	Headers Headers // rabbitMQ event headers
 	// Properties
 	ContentType     string    // MIME content type
 	ContentEncoding string    // MIME content encoding
@@ -39,10 +39,10 @@ type PublishingOptions struct {
 	Priority        uint8     // 0 to 9
 	CorrelationId   string    // correlation identifier
 	ReplyTo         string    // address to to reply to (ex: RPC)
-	Expiration      string    // message expiration spec
-	MessageId       string    // message identifier
-	Timestamp       time.Time // message timestamp
-	Type            string    // message type name
+	Expiration      string    // event expiration spec
+	MessageId       string    // event identifier
+	Timestamp       time.Time // event timestamp
+	Type            string    // event type name
 	UserId          string    // creating user id - ex: "guest"
 	AppId           string    // creating application id
 }
