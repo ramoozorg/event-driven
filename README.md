@@ -1,17 +1,20 @@
 # Event-Driven
 
-manage events with message brokers
+Event-driven architecture is a software architecture and model for application design. With an event-driven system, the capture, communication, processing, and persistence of events are the core structure of the solution. This differs from a traditional request-driven model.
 
-## Example Publish Message
+## Features
+- broadcast event via rabbitMQ
+- auto reconnect pattern for rabbitMQ
+- fault tolerance on panic
+
+### Example Publish Message
 
 ```go
 package main
 
 import (
 	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
-	"log"
 	"os"
-	"time"
 )
 
 type person struct {
@@ -31,35 +34,35 @@ func main() {
 		panic(err)
 	}
 
-	for {
-		if conn.IsConnected() {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.QueueDeclare("queue1", "exchange1", "rk", nil); err != nil {
+	if err := conn.DeclarePublisherQueue("queue1", "exchange1", "rk"); err != nil {
 		panic(err)
 	}
-	if err := NewMessagePublish(conn); err != nil {
+	if err := conn.DeclarePublisherQueue("queue2", "exchange1", "rk2"); err != nil {
+		panic(err)
+	}
+	if err := NewEventPublish(conn); err != nil {
 		panic(err)
 	}
 }
 
-func NewMessagePublish(conn *rabbitmq.Connection) error {
-	p := person{Name: "javad", Age: 28}
-	if err := conn.Publish("exchange1", "rk", "", "text/plain", "", nil, p); err != nil {
+func NewEventPublish(conn *rabbitmq.Connection) error {
+	p := person{Name: "rs", Age: 22}
+	q := person{Name: "reza", Age: 23}
+	if err := conn.Publish("exchange1", "rk", p, rabbitmq.PublishingOptions{}); err != nil {
 		return err
 	}
-	log.Println("message published ", p)
+	if err := conn.Publish("exchange1", "rk2", q, rabbitmq.PublishingOptions{}); err != nil {
+		return err
+	}
 	return nil
 }
+
 ```
 
-## Example Consume
+### Example Consume
 
 ```go
 package main
@@ -68,7 +71,6 @@ import (
 	"fmt"
 	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
 	"go.mongodb.org/mongo-driver/bson"
-	"time"
 )
 
 type person struct {
@@ -79,7 +81,7 @@ type person struct {
 func main() {
 	done := make(chan bool, 1)
 	conn, err := rabbitmq.NewConnection("test", &rabbitmq.Options{
-		UriAddress:      "amqp://guest:guest@localhost:5672",
+		UriAddress:      rabbitmq.CreateURIAddress("guest", "guest", "localhost:5672", ""),
 		DurableExchange: true,
 		AutoAck:         true,
 		ExclusiveQueue:  false,
@@ -88,37 +90,25 @@ func main() {
 		panic(err)
 	}
 
-	for {
-		if conn.IsConnected() {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	if err := conn.ExchangeDeclare("exchage1", rabbitmq.TOPIC); err != nil {
+	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.QueueDeclare("queue1", "exchange1", "rk", messageHandler); err != nil {
+	if err := conn.DeclareConsumerQueue("queue1", "exchange1", "rk", eventHandler); err != nil {
+		panic(err)
+	}
+	if err := conn.DeclareConsumerQueue("queue2", "exchange1", "rk2", eventHandler); err != nil {
 		panic(err)
 	}
 
-	go func() {
-		for {
-			if err := conn.Consume(); err != nil {
-				panic(err)
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
+	if err := conn.Consume(); err != nil {
+		panic(err)
+	}
 	<-done
 }
 
-func messageHandler(delivery rabbitmq.Delivery) error {
-	msg := <-delivery
+func eventHandler(queue string, delivery rabbitmq.Delivery) {
 	p := person{}
-	_ = bson.Unmarshal(msg.Body, &p)
-	fmt.Printf("New Message from exchange %v routingKey %v with body %v received\n", msg.Exchange, msg.RoutingKey, p)
-	return nil
+	_ = bson.Unmarshal(delivery.Body, &p)
+	fmt.Printf("New Event from exchange %v queue %v routingKey %v with body %v received\n", delivery.Exchange, queue, delivery.RoutingKey, p)
 }
-
 ```
