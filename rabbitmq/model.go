@@ -12,7 +12,7 @@ type (
 	Headers        amqp.Table           // Headers table for set message header when publishing
 )
 
-//Connection is the connection and channel of amqp
+//Connection is the structure of amqp event connection
 type Connection struct {
 	conn              *amqp.Connection // conn rabbitMQ connection Object
 	channel           *amqp.Channel    // channel amqp channel Object

@@ -27,6 +27,5 @@ func (c *Connection) Consume() error {
 			return err
 		}
 	}
-
 	return nil
 }

@@ -15,7 +15,7 @@ type person struct {
 func main() {
 	done := make(chan bool, 1)
 	conn, err := rabbitmq.NewConnection("test", &rabbitmq.Options{
-		UriAddress:      "amqp://guest:guest@localhost:5672",
+		UriAddress:      rabbitmq.CreateURIAddress("guest", "guest", "localhost:5672", ""),
 		DurableExchange: true,
 		AutoAck:         true,
 		ExclusiveQueue:  false,

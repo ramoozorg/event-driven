@@ -57,7 +57,10 @@ func (c *Connection) connect() bool {
 	if err != nil {
 		return false
 	}
-	c.updateConnection(conn, ch)
+	c.conn = conn
+	c.channel = ch
+	c.notifyClose = make(chan *amqp.Error)
+	c.channel.NotifyClose(c.notifyClose)
 	c.isConnected = true
 	return true
 }
@@ -90,14 +93,6 @@ func (c *Connection) handleReconnect(addr string) {
 		case <-c.notifyClose:
 		}
 	}
-}
-
-// updateConnection update connection and channel in memory
-func (c *Connection) updateConnection(connection *amqp.Connection, channel *amqp.Channel) {
-	c.conn = connection
-	c.channel = channel
-	c.notifyClose = make(chan *amqp.Error)
-	c.channel.NotifyClose(c.notifyClose)
 }
 
 // ExchangeDeclare declare new exchange with specific kind (direct, topic, fanout, headers)
