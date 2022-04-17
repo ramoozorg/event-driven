@@ -9,6 +9,13 @@ Event-driven architecture is a software architecture and model for application d
 - auto reconnect pattern for rabbitMQ
 - fault tolerance on panic
 
+## ToDo
+- [x] RabbitMQ
+- [x] AutoReconnect for rabbitMQ
+- [x] Encoder pattern
+- [ ] Used encode and decode pattern in rabbitMQ pub/sub
+- [ ] Nats
+
 ### Example Publish Message
 
 ```go
