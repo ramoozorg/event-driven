@@ -9,7 +9,7 @@ import (
 )
 
 //Publish publishes a request to the amqp queue
-func (c *Connection) Publish(exchange, routingKey string, publishOptions PublishingOptions, body interface{}) error {
+func (c *Connection) Publish(exchange, routingKey string, body interface{}, publishOptions PublishingOptions) error {
 	if !checkElementInSlice(c.exchanges, exchange) {
 		return EXHCNAGE_NOT_FOUND_ERROR
 	}
@@ -19,7 +19,7 @@ func (c *Connection) Publish(exchange, routingKey string, publishOptions Publish
 		return err
 	}
 	// try to publish event
-	if err := publish(c, exchange, routingKey, publishOptions, b); err != nil {
+	if err := publish(c, exchange, routingKey, b, publishOptions); err != nil {
 		if errors.Is(err, CONNECTION_CLOSED_ERROR) {
 			for {
 				if c.isConnected {
@@ -33,7 +33,7 @@ func (c *Connection) Publish(exchange, routingKey string, publishOptions Publish
 	return nil
 }
 
-func publish(conn *Connection, exchange, routingKey string, publishingOptions PublishingOptions, body []byte) error {
+func publish(conn *Connection, exchange, routingKey string, body []byte, publishingOptions PublishingOptions) error {
 	if !conn.isConnected {
 		return CONNECTION_CLOSED_ERROR
 	}

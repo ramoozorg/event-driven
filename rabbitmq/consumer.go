@@ -7,7 +7,14 @@ import (
 //Consume consumes the events from the queues and passes it as map of chan amqp.Delivery
 func (c *Connection) Consume() error {
 	for queue, handler := range c.queues {
-		go c.consume(queue, handler)
+		queue := queue
+		handler := handler
+		go func() {
+			c.consume(queue, handler)
+			if r := recover(); r != nil {
+				c.logger.Errorf("consumer got panic %v and recovered", r)
+			}
+		}()
 	}
 	return nil
 }
@@ -34,7 +41,6 @@ func (c *Connection) consume(queue string, eventHandler EventHandler) {
 				}
 				time.Sleep(1 * time.Second)
 			}
-		default:
 		}
 	}
 }

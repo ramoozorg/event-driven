@@ -39,10 +39,10 @@ func main() {
 func NewEventPublish(conn *rabbitmq.Connection) error {
 	p := person{Name: "rs", Age: 22}
 	q := person{Name: "reza", Age: 23}
-	if err := conn.Publish("exchange1", "rk", rabbitmq.PublishingOptions{}, p); err != nil {
+	if err := conn.Publish("exchange1", "rk", p, rabbitmq.PublishingOptions{}); err != nil {
 		return err
 	}
-	if err := conn.Publish("exchange1", "rk2", rabbitmq.PublishingOptions{}, q); err != nil {
+	if err := conn.Publish("exchange1", "rk2", q, rabbitmq.PublishingOptions{}); err != nil {
 		return err
 	}
 	return nil

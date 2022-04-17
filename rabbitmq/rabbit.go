@@ -40,6 +40,7 @@ func NewConnection(serviceName string, options *Options, done chan os.Signal) (*
 		}
 		time.Sleep(1 * time.Second)
 	}
+
 	return connObj, nil
 }
 
