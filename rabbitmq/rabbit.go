@@ -2,8 +2,8 @@ package rabbitmq
 
 import (
 	"fmt"
+	"git.ramooz.org/ramooz/golang-components/logger"
 	"github.com/streadway/amqp"
-	"log"
 	"os"
 	"time"
 )
@@ -30,6 +30,7 @@ func NewConnection(serviceName string, options *Options, done chan os.Signal) (*
 		ConnOpt:           opts,
 		done:              done,
 		alive:             true,
+		logger:            initNewLogger(),
 	}
 	go connObj.handleReconnect(opts.UriAddress)
 	return connObj, nil
@@ -70,7 +71,7 @@ func (c *Connection) handleReconnect(addr string) {
 	for c.alive {
 		c.isConnected = false
 		now := time.Now()
-		log.Printf("attempting to connect to rabbitMQ %v", addr)
+		c.logger.Infof("attempting to connect to rabbitMQ %v", addr)
 		retryCount := 0
 		for !c.connect() {
 			if !c.alive {
@@ -80,13 +81,13 @@ func (c *Connection) handleReconnect(addr string) {
 			case <-c.done:
 				return
 			case <-time.After(delayReconnectTime + time.Duration(retryCount)*time.Second):
-				log.Printf("cannot connect to rabbitMQ try connecting to rabbitMQ...")
+				c.logger.Warnf("cannot connect to rabbitMQ try connecting to rabbitMQ (next try after %v)...", delayReconnectTime+time.Duration(retryCount)*time.Second)
 				if retryCount != 10 {
 					retryCount++
 				}
 			}
 		}
-		log.Printf("connected to rabbitMQ after %v second", time.Since(now).Seconds())
+		c.logger.Infof("connected to rabbitMQ after %v second", time.Since(now).Seconds())
 		select {
 		case <-c.done:
 			return
@@ -175,7 +176,7 @@ func (c *Connection) Close() error {
 		return err
 	}
 	c.isConnected = false
-	log.Printf("gracefully stopped rabbitMQ connection")
+	c.logger.Warnf("gracefully stopped rabbitMQ connection")
 	return nil
 }
 
@@ -232,4 +233,12 @@ func (k Kind) String() string {
 	default:
 		return "topic"
 	}
+}
+
+func initNewLogger() *logger.LogService {
+	return logger.NewLogger(10001, "event-component", &logger.Options{
+		Colorable:     true,
+		ConsoleWriter: true,
+		Development:   true,
+	})
 }
