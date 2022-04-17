@@ -1,5 +1,7 @@
 # Event-Driven
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/ramoozorg/event-driven.svg)](https://pkg.go.dev/github.com/ramoozorg/event-driven)
+
 Event-driven architecture is a software architecture and model for application design. With an event-driven system, the capture, communication, processing, and persistence of events are the core structure of the solution. This differs from a traditional request-driven model.
 
 ## Features
