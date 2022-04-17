@@ -1,7 +1,6 @@
 package rabbitmq
 
 import (
-	"git.ramooz.org/ramooz/golang-components/logger"
 	"github.com/streadway/amqp"
 	"os"
 	"time"
@@ -24,7 +23,6 @@ type Connection struct {
 	alive             bool
 	exchanges         []string                // exchanges list
 	queues            map[string]EventHandler // queue and event handler
-	logger            *logger.LogService
 	ServiceCallerName string
 	ConnOpt           *Options
 }

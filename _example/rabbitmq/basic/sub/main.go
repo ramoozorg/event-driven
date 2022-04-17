@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
+
+	"github.com/ramoozorg/event-driven/rabbitmq"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

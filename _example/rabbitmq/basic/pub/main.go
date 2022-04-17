@@ -1,7 +1,7 @@
 package main
 
 import (
-	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
+	"github.com/ramoozorg/event-driven/rabbitmq"
 	"os"
 )
 

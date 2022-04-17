@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"log"
 	"time"
 )
 
@@ -12,7 +13,7 @@ func (c *Connection) Consume() error {
 		go func() {
 			c.consume(queue, handler)
 			if r := recover(); r != nil {
-				c.logger.Errorf("consumer got panic %v and recovered", r)
+				log.Printf("consumer got panic %v and recovered", r)
 			}
 		}()
 	}

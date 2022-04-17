@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq/enc"
+	"github.com/ramoozorg/event-driven/rabbitmq/enc"
 	"sync"
 )
 
