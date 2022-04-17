@@ -34,6 +34,12 @@ func NewConnection(serviceName string, options *Options, done chan os.Signal) (*
 		queues:            make(map[string]MessageHandler),
 	}
 	go connObj.handleReconnect(opts.UriAddress)
+	for {
+		if connObj.isConnected {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 	return connObj, nil
 }
 
@@ -59,11 +65,17 @@ func (c *Connection) connect() bool {
 	if err != nil {
 		return false
 	}
-	c.conn = conn
-	c.channel = ch
-	c.channel.NotifyClose(c.notifyClose)
+	c.updateConnection(conn, ch)
 	c.isConnected = true
 	return true
+}
+
+// updateConnection update connection and channel in memory
+func (c *Connection) updateConnection(connection *amqp.Connection, channel *amqp.Channel) {
+	c.conn = connection
+	c.channel = channel
+	c.notifyClose = make(chan *amqp.Error)
+	c.channel.NotifyClose(c.notifyClose)
 }
 
 // handleReconnect if closing rabbitMQ try to connect rabbitMQ continuously
@@ -115,12 +127,21 @@ func (c *Connection) ExchangeDeclare(exchange string, kind Kind) error {
 	return nil
 }
 
-// QueueDeclare declare new queue and bind queue and bind exchange with routing key
-func (c *Connection) QueueDeclare(queue, exchange, routingKey string, messageHandler MessageHandler) error {
+// DeclarePublisherQueue declare new queue and bind queue and bind exchange with routing key
+func (c *Connection) DeclarePublisherQueue(queue, exchange, routingKey string) error {
+	return c.queueDeclare(queue, exchange, routingKey, nil)
+}
+
+// DeclareConsumerQueue declare new queue and bind queue and bind exchange with routing key
+func (c *Connection) DeclareConsumerQueue(queue, exchange, routingKey string, messageHandler MessageHandler) error {
+	return c.queueDeclare(queue, exchange, routingKey, messageHandler)
+}
+
+func (c *Connection) queueDeclare(queue, exchange, routingKey string, consumeMessageHandler MessageHandler) error {
 	if _, ok := c.queues[queue]; ok {
 		return QUEUE_ALREADY_EXISTS_ERROR
 	} else {
-		c.queues[queue] = messageHandler
+		c.queues[queue] = consumeMessageHandler
 	}
 	if _, err := c.channel.QueueDeclare(
 		queue,
