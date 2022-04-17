@@ -6,26 +6,35 @@ import (
 
 //Consume consumes the messages from the queues and passes it as map of chan amqp.Delivery
 func (c *Connection) Consume() error {
-	for {
-		if c.isConnected {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
 	for queue, handler := range c.queues {
-		deliveries, err := c.channel.Consume(queue,
-			"",
-			c.ConnOpt.AutoAck,
-			c.ConnOpt.ExclusiveQueue,
-			false,
-			c.ConnOpt.NoWait,
-			nil)
-		if err != nil {
-			return err
-		}
-		if err := handler(deliveries); err != nil {
-			return err
-		}
+		go c.consume(queue, handler)
 	}
 	return nil
+}
+
+func (c *Connection) consume(queue string, messageHandler MessageHandler) {
+	deliveries, _ := c.channel.Consume(queue,
+		"",
+		c.ConnOpt.AutoAck,
+		c.ConnOpt.ExclusiveQueue,
+		false,
+		c.ConnOpt.NoWait,
+		nil)
+	for {
+		select {
+		case msg := <-deliveries:
+			if len(msg.Body) != 0 {
+				messageHandler(queue, Delivery(msg))
+			}
+		case <-c.notifyClose:
+			for {
+				if c.isConnected {
+					c.consume(queue, messageHandler)
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
+		default:
+		}
+	}
 }
