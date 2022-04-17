@@ -2,9 +2,7 @@ package main
 
 import (
 	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
-	"log"
 	"os"
-	"time"
 )
 
 type person struct {
@@ -24,17 +22,13 @@ func main() {
 		panic(err)
 	}
 
-	for {
-		if conn.IsConnected() {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.QueueDeclare("queue1", "exchange1", "rk", nil); err != nil {
+	if err := conn.DeclarePublisherQueue("queue1", "exchange1", "rk"); err != nil {
+		panic(err)
+	}
+	if err := conn.DeclarePublisherQueue("queue2", "exchange1", "rk2"); err != nil {
 		panic(err)
 	}
 	if err := NewMessagePublish(conn); err != nil {
@@ -43,10 +37,13 @@ func main() {
 }
 
 func NewMessagePublish(conn *rabbitmq.Connection) error {
-	p := person{Name: "javad", Age: 28}
-	if err := conn.Publish("exchange1", "rk", "", "text/plain", "", nil, p); err != nil {
+	p := person{Name: "rs", Age: 22}
+	q := person{Name: "reza", Age: 23}
+	if err := conn.Publish("exchange1", "rk", rabbitmq.PublishingOptions{}, p); err != nil {
 		return err
 	}
-	log.Println("message published ", p)
+	if err := conn.Publish("exchange1", "rk2", rabbitmq.PublishingOptions{}, q); err != nil {
+		return err
+	}
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"git.ramooz.org/ramooz/golang-components/event-driven/rabbitmq"
 	"go.mongodb.org/mongo-driver/bson"
-	"time"
 )
 
 type person struct {
@@ -24,35 +23,24 @@ func main() {
 		panic(err)
 	}
 
-	for {
-		if conn.IsConnected() {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.QueueDeclare("queue1", "exchange1", "rk", messageHandler); err != nil {
+	if err := conn.DeclareConsumerQueue("queue1", "exchange1", "rk", messageHandler); err != nil {
+		panic(err)
+	}
+	if err := conn.DeclareConsumerQueue("queue2", "exchange1", "rk2", messageHandler); err != nil {
 		panic(err)
 	}
 
-	go func() {
-		for {
-			if err := conn.Consume(); err != nil {
-				panic(err)
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
+	if err := conn.Consume(); err != nil {
+		panic(err)
+	}
 	<-done
 }
 
-func messageHandler(delivery rabbitmq.Delivery) error {
-	msg := <-delivery
+func messageHandler(queue string, delivery rabbitmq.Delivery) {
 	p := person{}
-	_ = bson.Unmarshal(msg.Body, &p)
-	fmt.Printf("New Message from exchange %v routingKey %v with body %v received\n", msg.Exchange, msg.RoutingKey, p)
-	return nil
+	_ = bson.Unmarshal(delivery.Body, &p)
+	fmt.Printf("New Message from exchange %v queue %v routingKey %v with body %v received\n", delivery.Exchange, queue, delivery.RoutingKey, p)
 }

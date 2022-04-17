@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	git.ramooz.org/ramooz/golang-components/logger v0.0.4
+	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
 	go.mongodb.org/mongo-driver v1.9.0
 )
