@@ -31,6 +31,7 @@ func NewConnection(serviceName string, options *Options, done chan os.Signal) (*
 		done:              done,
 		alive:             true,
 		logger:            initNewLogger(),
+		queues:            make(map[string]MessageHandler),
 	}
 	go connObj.handleReconnect(opts.UriAddress)
 	return connObj, nil
@@ -60,7 +61,6 @@ func (c *Connection) connect() bool {
 	}
 	c.conn = conn
 	c.channel = ch
-	c.notifyClose = make(chan *amqp.Error)
 	c.channel.NotifyClose(c.notifyClose)
 	c.isConnected = true
 	return true
@@ -117,9 +117,6 @@ func (c *Connection) ExchangeDeclare(exchange string, kind Kind) error {
 
 // QueueDeclare declare new queue and bind queue and bind exchange with routing key
 func (c *Connection) QueueDeclare(queue, exchange, routingKey string, messageHandler MessageHandler) error {
-	if c.queues == nil {
-		c.queues = make(map[string]MessageHandler)
-	}
 	if _, ok := c.queues[queue]; ok {
 		return QUEUE_ALREADY_EXISTS_ERROR
 	} else {
