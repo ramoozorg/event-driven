@@ -31,7 +31,7 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 
-	if err := conn.ExchangeDeclare("exchage1", rabbitmq.TOPIC); err != nil {
+	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
 	if err := conn.QueueDeclare("queue1", "exchange1", "rk", messageHandler); err != nil {
