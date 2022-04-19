@@ -199,6 +199,21 @@ func (c *Connection) Close() error {
 	return nil
 }
 
+// Ack delegates an acknowledgement through the Acknowledger interface that the client or server has finished work on a delivery.
+func (d Delivery) Ack(multiple bool) error {
+	return d.Acknowledger.Ack(d.DeliveryTag, multiple)
+}
+
+// Nack negatively acknowledge the delivery of message(s) identified by the delivery tag from either the client or server.
+func (d Delivery) Nack(multiple bool, requeue bool) error {
+	return d.Acknowledger.Nack(d.DeliveryTag, multiple, requeue)
+}
+
+// Reject delegates a negatively acknowledgement through the Acknowledger interface.
+func (d Delivery) Reject(requeue bool) error {
+	return d.Acknowledger.Reject(d.DeliveryTag, requeue)
+}
+
 // String exchange type as string
 func (k Kind) String() string {
 	switch k {
