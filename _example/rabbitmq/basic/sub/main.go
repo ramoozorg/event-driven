@@ -27,10 +27,10 @@ func main() {
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclareConsumerQueue("queue1", "exchange1", "rk", eventHandler); err != nil {
+	if err := conn.DeclareConsumerQueue(eventHandler, "queue1", "exchange1", "rk", "rk2"); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclareConsumerQueue("queue2", "exchange1", "rk2", eventHandler); err != nil {
+	if err := conn.DeclareConsumerQueue(eventHandler, "queue2", "exchange1", "rk3"); err != nil {
 		panic(err)
 	}
 

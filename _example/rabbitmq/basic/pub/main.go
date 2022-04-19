@@ -25,10 +25,10 @@ func main() {
 	if err := conn.ExchangeDeclare("exchange1", rabbitmq.TOPIC); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclarePublisherQueue("queue1", "exchange1", "rk"); err != nil {
+	if err := conn.DeclarePublisherQueue("queue1", "exchange1", "rk", "rk2"); err != nil {
 		panic(err)
 	}
-	if err := conn.DeclarePublisherQueue("queue2", "exchange1", "rk2"); err != nil {
+	if err := conn.DeclarePublisherQueue("queue2", "exchange1", "rk3"); err != nil {
 		panic(err)
 	}
 	if err := NewEventPublish(conn); err != nil {
@@ -42,7 +42,7 @@ func NewEventPublish(conn *rabbitmq.Connection) error {
 	if err := conn.Publish("exchange1", "rk", p, rabbitmq.PublishingOptions{}); err != nil {
 		return err
 	}
-	if err := conn.Publish("exchange1", "rk2", q, rabbitmq.PublishingOptions{}); err != nil {
+	if err := conn.Publish("exchange1", "rk3", q, rabbitmq.PublishingOptions{}); err != nil {
 		return err
 	}
 	return nil
