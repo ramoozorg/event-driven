@@ -4,6 +4,8 @@
 
 Event-driven architecture is a software architecture and model for application design. With an event-driven system, the capture, communication, processing, and persistence of events are the core structure of the solution. This differs from a traditional request-driven model.
 
+![](./assest/event-driven.jpg)
+
 ## Features
 - broadcast event via rabbitMQ
 - auto reconnect pattern for rabbitMQ
