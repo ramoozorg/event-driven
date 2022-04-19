@@ -129,16 +129,16 @@ func (c *Connection) ExchangeDeclare(exchange string, kind Kind) error {
 }
 
 // DeclarePublisherQueue declare new queue and bind queue and bind exchange with routing key
-func (c *Connection) DeclarePublisherQueue(queue, exchange, routingKey string) error {
-	return c.queueDeclare(queue, exchange, routingKey, nil)
+func (c *Connection) DeclarePublisherQueue(queue, exchange string, routingKey ...string) error {
+	return c.queueDeclare(nil, queue, exchange, routingKey...)
 }
 
 // DeclareConsumerQueue declare new queue and bind queue and bind exchange with routing key
-func (c *Connection) DeclareConsumerQueue(queue, exchange, routingKey string, eventHandler EventHandler) error {
-	return c.queueDeclare(queue, exchange, routingKey, eventHandler)
+func (c *Connection) DeclareConsumerQueue(eventHandler EventHandler, queue, exchange string, routingKey ...string) error {
+	return c.queueDeclare(eventHandler, queue, exchange, routingKey...)
 }
 
-func (c *Connection) queueDeclare(queue, exchange, routingKey string, consumerEventHandler EventHandler) error {
+func (c *Connection) queueDeclare(consumerEventHandler EventHandler, queue, exchange string, routingKey ...string) error {
 	if _, ok := c.queues[queue]; ok {
 		return QUEUE_ALREADY_EXISTS_ERROR
 	} else {
@@ -155,14 +155,16 @@ func (c *Connection) queueDeclare(queue, exchange, routingKey string, consumerEv
 		return err
 	}
 
-	if err := c.channel.QueueBind(
-		queue,
-		routingKey,
-		exchange,
-		c.ConnOpt.NoWait,
-		nil,
-	); err != nil {
-		return err
+	for _, key := range routingKey {
+		if err := c.channel.QueueBind(
+			queue,
+			key,
+			exchange,
+			c.ConnOpt.NoWait,
+			nil,
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }
